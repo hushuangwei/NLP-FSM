@@ -1,0 +1,61 @@
+import 'byte.grm' as bytelib;        # load a simple grammar (.grm)
+ByteSigma = (bytelib.kSpace | bytelib.kGraph);  # printable characters
+ByteSigmaStar = Optimize[ByteSigma*];
+
+export LM = LoadFst['entrain.fst'];  # load trigram language model (.fst)
+vocab = SymbolTable['entrain.sym'];  # load model's symbol table (.sym)
+Spell = StringFile['entrain.alpha', vocab, byte];
+
+# 7(e)
+# command line is "grmtest-with-symbols noisy.grm CompleteWord,LM byte entrain.sym"
+export Delete = Optimize[CDRewrite[(ByteSigmaStar:""), ByteSigma, "[EOS]", ByteSigmaStar ,'rtl','opt']];
+# byte-byte-byte-vocab-vocab-vocab
+export CompleteWord  = Optimize[Invert[Delete] @ Invert[Spell]];
+
+# 7(f)
+# command line is "grmtest-with-symbols noisy.grm CompleteWordInContext,LM byte entrain.sym"
+export CWIC = (Invert[Spell](" ":" ".vocab))*(Invert[Delete] @ Invert[Spell]);
+
+# 8(a)
+export DelSpaces = Optimize[CDRewrite[" ":"", "", "", ByteSigmaStar]];# delete spaces
+
+# 8(c) - 8(d)
+export SpellText = Optimize[ (Spell ("".vocab : " "))* ]; #vocab-byte, add space to each word
+export Generate = LM @ SpellText @ DelSpaces; 
+export Decode = Invert[Generate];
+export InvSpellText = Optimize[Invert[SpellText]]; # byte-voc accept (spell" ")*
+export InvDelSpaces = Optimize[Invert[DelSpaces]]; # byte-byte add spaces
+
+# 8(e)
+RandomChar = (bytelib.kGraph <4.54>);
+export RandomWord = Optimize[(RandomChar (RandomChar <0.1>)*) <2.3>];
+SpellOOV = "<unk>".vocab: RandomWord;
+
+# 8(f)
+SpellAll = Spell | SpellOOV; # voc-byte <unk>-random
+export PrintText = (SpellAll ("".vocab:" "))*;
+export SpellTextAll = Optimize[(SpellAll("".vocab: " "))*]; #vocab-byte, add space to each word
+export GenerateAll = LM @ SpellTextAll @ DelSpaces; 
+export DecodeAll = Invert[GenerateAll];
+export InvSpellTextAll = Optimize[Invert[SpellTextAll]]; # byte-voc accept
+
+# 8(h)
+Sigma = bytelib.kBytes;
+export Edit = (Sigma | ((""|Sigma) : (""|Sigma) <1>) )*;
+
+# 9
+# command line is "grmtest-with-symbols noisy.grm SuffixComplete,LM byte entrain.sym"
+Suffix = "ible"|"able"|"ion"|"ify"|"ance"|"ence";
+export DelSuffixes = Optimize[CDRewrite[(Suffix:""), ByteSigma, "[EOS]", ByteSigmaStar ,'rtl','opt']];
+export Addsuffixes  = Optimize[Invert[DelSuffixes] @ Invert[Spell]];
+export SuffixComplete = ((Invert[Spell](" ":" ".vocab))|(Invert[DelSuffixes] @ Invert[Spell]))*;
+
+# command line is "grmtest-with-symbols noisy.grm TypoComplete,LM byte entrain.sym"
+Typo = "ce":"se"|"el":"le"|"te":"t"|"cq":"q"|"mn":"m";
+export Typos = Optimize[CDRewrite[Typo, "", "", ByteSigmaStar ,'rtl','opt']];
+export wordtypo = Optimize[Invert[Typos] @ Invert[Spell]];
+export TypoComplete = ((Invert[Spell](" ":" ".vocab))|(Invert[Typos] @ Invert[Spell]))*;
+
+
+
+

@@ -1,0 +1,25 @@
+import 'byte.grm' as bytelib;     
+import 'tags.grm' as tags;  
+
+Sigma = (tags.Tags) | (bytelib.kBytes);
+SigmaStar = Optimize[Sigma*];
+Art = "Art";
+Quant = "Quant";
+Adj = "Adj";
+Noun = "Noun";
+Nmod = "Nmod";
+Verb = "Verb";
+Foo = "Foo";
+Bar = "Bar";
+Baz = "Baz";
+export NP = Optimize[(Art|Quant)? Adj* Noun+];
+export MakeNmod = Optimize[CDRewrite["Noun":"Nmod", "", Noun, SigmaStar]];
+export TransformNP = Optimize[NP @ MakeNmod];
+export BracketNP = ("" : "<") NP ("" : ">");
+export Brackets1 = Optimize[SigmaStar (BracketNP SigmaStar)*];
+export Brackets2 = CDRewrite[BracketNP, "", "", SigmaStar,'sim','obl'];
+export BracketTransform = Optimize[Brackets2@MakeNmod];
+export N = Optimize[Quant Noun+ Verb];
+export BracketResults = Optimize["": ("Quant" "Noun"+ "Verb") @ BracketTransform];
+# YOU WILL FILL IN THE REST
+
